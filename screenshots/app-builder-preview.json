@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Replay",
+      "hasCanvas": false,
+      "bodyTextLen": 14,
+      "bodyTextHash": "e838494ccce0d61dbd139b22867bf68bf3d0e86015172922d2e4d0e05c6b0bfa",
+      "bodyTextPrefix": "Replay BACHECA",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Replay",
+      "hasCanvas": false,
+      "bodyTextLen": 6,
+      "bodyTextHash": "c8dae6371b33b8d67fdbd138fd28e89eefbd7af6b764f282b0872812b06a150c",
+      "bodyTextPrefix": "Replay",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

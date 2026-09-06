@@ -1,0 +1,1 @@
+import{t as e}from"./react-SIfiwpqq.js";import{R as t,j as n,k as r}from"./preload-helper-Bj0oy2BP.js";var i=r(`arrow-left`,[[`path`,{d:`m12 19-7-7 7-7`,key:`1l729n`}],[`path`,{d:`M19 12H5`,key:`x3x0zl`}]]);e();var a=t(),o=`/login`;function s({to:e=o}){return(0,a.jsx)(n,{to:e})}export{i as n,s as t};
