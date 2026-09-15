@@ -1,7 +1,16 @@
 import { useState, type FormEvent } from "react";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { claimHandle } from "@/lib/api";
-import { HANDLE_MAX, HANDLE_MIN, handleHint, handleToEmail, normalizeHandle } from "@/lib/handles";
+import { authFetchHooks, persistAuthToken } from "@/lib/capture-auth-token";
+import {
+  HANDLE_MAX,
+  HANDLE_MIN,
+  PASSWORD_MIN,
+  handleHint,
+  handleToEmail,
+  loginIdentifierToEmail,
+  normalizeHandle,
+} from "@/lib/handles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -13,31 +22,41 @@ export function AuthPanel({ defaultMode = "login" }: { defaultMode?: "login" | "
   const [pending, setPending] = useState(false);
 
   const hint = handleHint(handle);
-  const canSubmit = !hint && password.length >= 6 && !pending && authEnabled;
+  const canSubmit =
+    !hint && password.length >= PASSWORD_MIN && !pending && authEnabled;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
     const clean = normalizeHandle(handle);
+    const email = mode === "join" ? handleToEmail(clean) : loginIdentifierToEmail(handle);
+    if (mode === "join" && !clean) {
+      setError("Scegli un nome utente.");
+      return;
+    }
     setPending(true);
     setError(null);
     try {
+      const hooks = authFetchHooks();
       if (mode === "join") {
-        const { error: signErr } = await authClient.signUp.email({
-          email: handleToEmail(clean),
-          password,
-          name: clean,
-        });
+        const { data, error: signErr } = await authClient.signUp.email(
+          { email, password, name: clean },
+          hooks,
+        );
         if (signErr) throw new Error(mapAuthError(signErr.message, "join"));
+        persistAuthToken(data?.token);
+        await authClient.getSession();
         await claimHandle({ data: { handle: clean } });
       } else {
-        const { error: signErr } = await authClient.signIn.email({
-          email: handleToEmail(clean),
-          password,
-        });
+        const { data, error: signErr } = await authClient.signIn.email(
+          { email, password, rememberMe: true },
+          hooks,
+        );
         if (signErr) throw new Error(mapAuthError(signErr.message, "login"));
+        persistAuthToken(data?.token);
+        await authClient.getSession();
       }
-      window.location.href = "/";
+      window.location.assign("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Qualcosa è andato storto.");
       setPending(false);
@@ -50,14 +69,20 @@ export function AuthPanel({ defaultMode = "login" }: { defaultMode?: "login" | "
         <button
           type="button"
           className={tabClass(mode === "login")}
-          onClick={() => setMode("login")}
+          onClick={() => {
+            setMode("login");
+            setError(null);
+          }}
         >
           Entra
         </button>
         <button
           type="button"
           className={tabClass(mode === "join")}
-          onClick={() => setMode("join")}
+          onClick={() => {
+            setMode("join");
+            setError(null);
+          }}
         >
           Registrati
         </button>
@@ -67,20 +92,22 @@ export function AuthPanel({ defaultMode = "login" }: { defaultMode?: "login" | "
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
             <label htmlFor="handle" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-subtle">
-              Nome utente
+              {mode === "join" ? "Nome utente" : "Nome utente o email"}
             </label>
             <Input
               id="handle"
               autoComplete="username"
               value={handle}
-              maxLength={HANDLE_MAX + 4}
+              maxLength={mode === "join" ? HANDLE_MAX + 4 : 80}
               onChange={(e) => setHandle(e.target.value)}
-              placeholder="es. mara_91"
+              placeholder={mode === "join" ? "es. mara_91" : "mara_91"}
             />
             {handle && hint ? <p className="mt-1.5 text-xs text-danger">{hint}</p> : null}
-            <p className="mt-1.5 text-xs text-subtle">
-              {HANDLE_MIN}–{HANDLE_MAX} caratteri, lettere e numeri.
-            </p>
+            {mode === "join" ? (
+              <p className="mt-1.5 text-xs text-subtle">
+                {HANDLE_MIN}–{HANDLE_MAX} caratteri, lettere e numeri.
+              </p>
+            ) : null}
           </div>
           <div>
             <label htmlFor="password" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-subtle">
@@ -92,7 +119,7 @@ export function AuthPanel({ defaultMode = "login" }: { defaultMode?: "login" | "
               autoComplete={mode === "join" ? "new-password" : "current-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Almeno 6 caratteri"
+              placeholder={`Almeno ${PASSWORD_MIN} caratteri`}
             />
           </div>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
@@ -137,13 +164,23 @@ function tabClass(active: boolean) {
 }
 
 function mapAuthError(message: string | undefined, mode: "login" | "join"): string {
-  const m = (message ?? "").toLowerCase();
-  if (m.includes("invalid") || m.includes("credential")) {
+  const raw = message ?? "";
+  const m = raw.toLowerCase();
+  if (m.includes("invalid origin")) {
+    return "Origine non valida. Ricarica la pagina e riprova.";
+  }
+  if (m.includes("invalid email") || (m.includes("email") && m.includes("invalid"))) {
+    return "Email o nome utente non valido.";
+  }
+  if (m.includes("too short") || (m.includes("password") && m.includes("short"))) {
+    return `La password deve avere almeno ${PASSWORD_MIN} caratteri.`;
+  }
+  if (m.includes("invalid") || m.includes("credential") || m.includes("unauthorized")) {
     return mode === "login" ? "Nome utente o password non corretti." : "Dati non validi.";
   }
   if (m.includes("exist") || m.includes("already")) {
-    return "Questo nome utente è già registrato.";
+    return "Questo nome utente è già registrato. Prova ad entrare.";
   }
-  if (m.includes("password")) return "Password troppo corta.";
-  return message || "Accesso non riuscito.";
+  if (m.includes("password")) return `La password deve avere almeno ${PASSWORD_MIN} caratteri.`;
+  return raw || "Accesso non riuscito.";
 }
