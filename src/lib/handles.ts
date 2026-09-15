@@ -26,7 +26,7 @@ export function loginIdentifierToEmail(raw: string): string {
 export function handleHint(raw: string): string | null {
   if (raw.trim().includes("@")) {
     const email = raw.trim();
-    if (!/^[\s@]+@[\s@]+\.[\s@]+$/.test(email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Email non valida.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Email non valida.";
     return null;
   }
   const h = normalizeHandle(raw);
